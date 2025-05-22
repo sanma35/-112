@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プロットメーカー</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        h1, h2, h3, h4 {
+            color: #0056b3;
+        }
+
+        #app {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea {
+            width: calc(100% - 12px);
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+
+        textarea {
+            min-height: 120px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #plot-list, #sequence-list, #scene-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        #plot-list li, #sequence-list li, #scene-list li {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #plot-list li:last-child, #sequence-list li:last-child, #scene-list li:last-child {
+            border-bottom: none;
+        }
+
+        #plot-list li button, #sequence-list li button, #scene-list li button {
+            margin-left: 10px;
+            background-color: #28a745;
+        }
+
+        #plot-list li button:hover, #sequence-list li button:hover, #scene-list li button:hover {
+            background-color: #1e7e34;
+        }
+
+        #timeline-canvas, #drawing-canvas {
+            width: 100%;
+            height: 200px; /* Canvasの初期高さを設定 */
+            border: 1px solid #ccc;
+            background-color: #eee;
+            margin-bottom: 10px;
+        }
+
+        #table-editor {
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fff;
+        }
+
+        #table-preview {
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            overflow-x: auto;
+        }
+
+        #table-preview table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        #table-preview th, #table-preview td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        #image-preview {
+            margin-top: 10px;
+        }
+
+        #image-preview img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .timeline-event-item { /* クラス名をtimeline-event-itemに変更 */
+            border: 1px solid #aaa;
+            padding: 8px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            background-color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .timeline-event-item button {
+            background-color: #dc3545;
+        }
+        .timeline-event-item button:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>プロットメーカー</h1>
+
+        <div id="main-screen">
+            <button id="new-plot">新規作成</button>
+            <h2>保存済みプロット</h2>
+            <ul id="plot-list">
+            </ul>
+        </div>
+
+        <div id="plot-editor" style="display: none;">
+            <h2>プロット編集</h2>
+            <label for="plot-title">タイトル:</label>
+            <input type="text" id="plot-title"><br><br>
+
+            <div class="section">
+                <h3>全体概要</h3>
+                <textarea id="overall-summary"></textarea>
+            </div>
+
+            <div class="section">
+                <h3>原作メモ</h3>
+                <textarea id="original-notes"></textarea>
+            </div>
+
+             <div class="section">
+                <h3>設定と考察</h3>
+                <textarea id="setting-consideration"></textarea>
+            </div>
+
+            <div class="section">
+                 <h3>キャラクター プロフィールと設定</h3>
+                 <textarea id="character-profiles"></textarea>
+            </div>
+
+            <div class="section">
+                <h3>時系列</h3>
+                <canvas id="timeline-canvas"></canvas>
+                <button id="add-timeline-event">イベント追加</button>
+                <div id="timeline-events-list"></div>
+            </div>
+
+            <div class="section">
+                <h3>シークエンス一覧</h3>
+                <ul id="sequence-list">
+                </ul>
+                <button id="add-sequence">シークエンス追加</button>
+            </div>
+
+            <div class="section">
+                <h3>メモ</h3>
+                <textarea id="general-memo"></textarea>
+            </div>
+
+            <button id="save-plot">保存</button>
+            <button id="back-to-main">メインに戻る</button>
+        </div>
+
+        <div id="sequence-editor" style="display: none;">
+            <h2>シークエンス編集</h2>
+            <label for="sequence-title">シークエンスタイトル:</label>
+            <input type="text" id="sequence-title"><br><br>
+
+            <h3>シーン一覧</h3>
+            <ul id="scene-list">
+            </ul>
+            <button id="add-scene">シーン追加</button>
+            <div class="section">
+                <h3>シークエンスメモ</h3>
+                <textarea id="sequence-memo"></textarea>
+            </div>
+            <button id="save-sequence">シークエンス保存</button>
+            <button id="back-to-plot">プロットに戻る</button>
+        </div>
+
+        <div id="scene-editor" style="display: none;">
+            <h2>場面/シーン編集</h2>
+            <label for="scene-title">タイトル:</label>
+            <input type="text" id="scene-title"><br><br>
+            <h3>詳細プロット</h3>
+            <textarea id="scene-detail"></textarea>
+
+            <h3>図/表/画像</h3>
+            <canvas id="drawing-canvas"></canvas>
+            <div>
+                <button id="draw-rect">四角</button>
+                <button id="draw-circle">丸</button>
+            </div>
+
+            <div id="table-editor">
+                <h4>表作成</h4>
+                <label for="table-rows">行:</label>
+                <input type="number" id="table-rows" min="1" value="3">
+                <label for="table-cols">列:</label>
+                <input type="number" id="table-cols" min="1" value="3">
+                <button id="create-table">作成</button>
+                <div id="table-preview"></div>
+            </div>
+
+            <input type="file" id="image-upload" accept="image/*">
+            <div id="image-preview"></div>
+
+            <button id="save-scene">シーン保存</button>
+            <button id="back-to-sequence">シークエンスに戻る</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // UI要素の取得
+            const mainScreen = document.getElementById('main-screen');
+            const plotEditor = document.getElementById('plot-editor');
+            const sequenceEditor = document.getElementById('sequence-editor');
+            const sceneEditor = document.getElementById('scene-editor');
+
+            // メイン画面の要素
+            const newPlotButton = document.getElementById('new-plot');
+            const plotList = document.getElementById('plot-list');
+
+            // プロット編集画面の要素
+            const plotTitleInput = document.getElementById('plot-title');
+            const overallSummaryTextarea = document.getElementById('overall-summary');
+            const originalNotesTextarea = document.getElementById('original-notes');
+            // 新しく追加した要素
+            const settingConsiderationTextarea = document.getElementById('setting-consideration');
+            const characterProfilesTextarea = document.getElementById('character-profiles');
+
+            const generalMemoTextarea = document.getElementById('general-memo');
+            const savePlotButton = document.getElementById('save-plot');
+            const backToMainButton = document.getElementById('back-to-main');
+            const addSequenceButton = document.getElementById('add-sequence');
+            const sequenceList = document.getElementById('sequence-list');
+
+            // シークエンス編集画面の要素
+            const sequenceTitleInput = document.getElementById('sequence-title');
+            const sequenceMemoTextarea = document.getElementById('sequence-memo');
+            const saveSequenceButton = document.getElementById('save-sequence');
+            const backToPlotButton = document.getElementById('back-to-plot');
+            const addSceneButton = document.getElementById('add-scene');
+            const sceneList = document.getElementById('scene-list');
+
+            // シーン編集画面の要素
+            const sceneTitleInput = document.getElementById('scene-title');
+            const sceneDetailTextarea = document.getElementById('scene-detail');
+            const saveSceneButton = document.getElementById('save-scene');
+            const backToSequenceButton = document.getElementById('back-to-sequence');
+
+            // 時系列関連
+            const timelineCanvas = document.getElementById('timeline-canvas');
+            const timelineCtx = timelineCanvas.getContext('2d');
+            const addTimelineEventButton = document.getElementById('add-timeline-event');
+            const timelineEventsList = document.getElementById('timeline-events-list');
+            let timelineEvents = []; // { text: '...', position: number }
+
+            // 図形描画関連
+            const drawingCanvas = document.getElementById('drawing-canvas');
+            const drawingCtx = drawingCanvas.getContext('2d');
+            const drawRectButton = document.getElementById('draw-rect');
+            const drawCircleButton = document.getElementById('draw-circle');
+            let drawingMode = null; // 'rect', 'circle'
+            let isDrawing = false;
+            let startX, startY;
+            let drawings = []; // { type: 'rect'|'circle', x: number, y: number, width?: number, height?: number, radius?: number }
+
+            // 表作成関連
+            const tableRowsInput = document.getElementById('table-rows');
+            const tableColsInput = document.getElementById('table-cols');
+            const createTableButton = document.getElementById('create-table');
+            const tablePreview = document.getElementById('table-preview');
+            let currentTableData = null; // 2D array
+
+            // 画像関連
+            const imageUpload = document.getElementById('image-upload');
+            const imagePreviewElement = document.getElementById('image-preview');
+            let currentImageData = null; // { dataUrl: string }
+
+            // データの保持
+            let plots = []; // 全体のプロットデータ
+            let currentPlotIndex = null;
+            let currentSequenceIndex = null;
+            let currentSceneIndex = null;
+
+            // --- 画面切り替え関連関数 ---
+            function showScreen(screenId) {
+                mainScreen.style.display = 'none';
+                plotEditor.style.display = 'none';
+                sequenceEditor.style.display = 'none';
+                sceneEditor.style.display = 'none';
+
+                document.getElementById(screenId).style.display = 'block';
+            }
+
+            // --- ローカルストレージ関連関数 ---
+            function savePlotsToStorage() {
+                localStorage.setItem('plots', JSON.stringify(plots));
+            }
+
+            function loadPlotsFromStorage() {
+                const storedPlots = localStorage.getItem('plots');
+                if (storedPlots) {
+                    plots = JSON.parse(storedPlots);
+                    displayPlotList();
+                }
+            }
+
+            // --- プロット関連関数 ---
+            function displayPlotList() {
+                plotList.innerHTML = '';
+                plots.forEach((plot, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = plot.title || '無題のプロット';
+
+                    const buttonGroup = document.createElement('div');
+
+                    const openButton = document.createElement('button');
+                    openButton.textContent = '開く';
+                    openButton.addEventListener('click', () => {
+                        currentPlotIndex = index;
+                        loadPlot(currentPlotIndex);
+                        showScreen('plot-editor');
+                    });
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = '削除';
+                    deleteButton.style.backgroundColor = '#dc3545';
+                    deleteButton.style.marginLeft = '10px';
+                    deleteButton.addEventListener('click', (event) => {
+                        event.stopPropagation(); // 親要素のクリックイベントが発火しないように
+                        if (confirm(`${plot.title || '無題のプロット'} を削除しますか？`)) {
+                            plots.splice(index, 1);
+                            savePlotsToStorage();
+                            displayPlotList();
+                        }
+                    });
+                    buttonGroup.appendChild(openButton);
+                    buttonGroup.appendChild(deleteButton);
+                    listItem.appendChild(buttonGroup);
+                    plotList.appendChild(listItem);
+                });
+            }
+
+            function newPlot() {
+                currentPlotIndex = null; // 新規作成なのでインデックスをリセット
+                plotTitleInput.value = '';
+                overallSummaryTextarea.value = '';
+                originalNotesTextarea.value = '';
+                settingConsiderationTextarea.value = ''; // 新しく追加した要素をクリア
+                characterProfilesTextarea.value = '';    // 新しく追加した要素をクリア
+                generalMemoTextarea.value = '';
+                timelineEvents = [];
+                drawTimeline(); // Canvasをクリア
+                renderTimelineEventsList();
+                sequenceList.innerHTML = ''; // シークエンスリストをクリア
+                showScreen('plot-editor');
+            }
+
+            function savePlot() {
+                const plotData = {
+                    title: plotTitleInput.value,
+                    overallSummary: overallSummaryTextarea.value,
+                    originalNotes: originalNotesTextarea.value,
+                    settingConsideration: settingConsiderationTextarea.value, // 新しく追加したデータを保存
+                    characterProfiles: characterProfilesTextarea.value,      // 新しく追加したデータを保存
+                    generalMemo: generalMemoTextarea.value,
+                    timelineEvents: timelineEvents,
+                    sequences: plots[currentPlotIndex]?.sequences || [] // 既存のシークエンスを保持
+                };
+
+                if (currentPlotIndex === null) {
+                    // 新規プロット
+                    plots.push(plotData);
+                    currentPlotIndex = plots.length - 1; // 新しいプロットのインデックスを設定
+                } else {
+                    // 既存プロットの更新
+                    plots[currentPlotIndex] = plotData;
+                }
+                savePlotsToStorage();
+                displayPlotList(); // メイン画面のリストを更新
+                alert('プロットが保存されました！');
+            }
+
+            function loadPlot(index) {
+                const plot = plots[index];
+                if (plot) {
+                    plotTitleInput.value = plot.title;
+                    overallSummaryTextarea.value = plot.overallSummary;
+                    originalNotesTextarea.value = plot.originalNotes;
+                    settingConsiderationTextarea.value = plot.settingConsideration || ''; // データがない場合の対応
+                    characterProfilesTextarea.value = plot.characterProfiles || '';      // データがない場合の対応
+                    generalMemoTextarea.value = plot.generalMemo;
+                    timelineEvents = plot.timelineEvents || [];
+                    drawTimeline();
+                    renderTimelineEventsList();
+                    displaySequenceList(); // シークエンスリストもロード
+                }
+            }
+
+            // --- シークエンス関連関数 ---
+            function displaySequenceList() {
+                sequenceList.innerHTML = '';
+                const currentPlot = plots[currentPlotIndex];
+                if (!currentPlot || !currentPlot.sequences) return;
+
+                currentPlot.sequences.forEach((sequence, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = sequence.title || '無題のシークエンス';
+
+                    const buttonGroup = document.createElement('div');
+
+                    const openButton = document.createElement('button');
+                    openButton.textContent = '開く';
+                    openButton.addEventListener('click', () => {
+                        currentSequenceIndex = index;
+                        loadSequence(currentSequenceIndex);
+                        showScreen('sequence-editor');
+                    });
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = '削除';
+                    deleteButton.style.backgroundColor = '#dc3545';
+                    deleteButton.style.marginLeft = '10px';
+                    deleteButton.addEventListener('click', (event) => {
+                        event.stopPropagation();
+                        if (confirm(`${sequence.title || '無題のシークエンス'} を削除しますか？`)) {
+                            currentPlot.sequences.splice(index, 1);
+                            savePlotsToStorage();
+                            displaySequenceList();
+                        }
+                    });
+                    buttonGroup.appendChild(openButton);
+                    buttonGroup.appendChild(deleteButton);
+                    listItem.appendChild(buttonGroup);
+                    sequenceList.appendChild(listItem);
+                });
+            }
+
+            function addSequence() {
+                if (currentPlotIndex === null) {
+                    alert('先にプロットを保存してください。');
+                    return;
+                }
+                const currentPlot = plots[currentPlotIndex];
+                if (!currentPlot.sequences) {
+                    currentPlot.sequences = [];
+                }
+                currentSequenceIndex = null; // 新規作成なのでインデックスをリセット
+                sequenceTitleInput.value = '';
+                sequenceMemoTextarea.value = '';
+                sceneList.innerHTML = ''; // シーンリストをクリア
+                showScreen('sequence-editor');
+            }
+
+            function saveSequence() {
+                if (currentPlotIndex === null) {
+                    alert('関連するプロットが選択されていません。');
+                    return;
+                }
+                const currentPlot = plots[currentPlotIndex];
+                if (!currentPlot.sequences) {
+                    currentPlot.sequences = [];
+                }
+
+                const sequenceData = {
+                    title: sequenceTitleInput.value,
+                    memo: sequenceMemoTextarea.value,
+                    scenes: (currentSequenceIndex !== null && currentPlot.sequences[currentSequenceIndex]?.scenes) || []
+                };
+
+                if (currentSequenceIndex === null) {
+                    // 新規シークエンス
+                    currentPlot.sequences.push(sequenceData);
+                    currentSequenceIndex = currentPlot.sequences.length - 1;
+                } else {
+                    // 既存シークエンスの更新
+                    currentPlot.sequences[currentSequenceIndex] = sequenceData;
+                }
+                savePlotsToStorage();
+                displaySequenceList();
+                alert('シークエンスが保存されました！');
+            }
+
+            function loadSequence(index) {
+                const currentPlot = plots[currentPlotIndex];
+                const sequence = currentPlot?.sequences?.[index];
+                if (sequence) {
+                    sequenceTitleInput.value = sequence.title;
+                    sequenceMemoTextarea.value = sequence.memo;
+                    displaySceneList(); // シーンリストもロード
+                }
+            }
+
+            // --- シーン関連関数 ---
+            function displaySceneList() {
+                sceneList.innerHTML = '';
+                const currentPlot = plots[currentPlotIndex];
+                const currentSequence = currentPlot?.sequences?.[currentSequenceIndex];
+                if (!currentSequence || !currentSequence.scenes) return;
+
+                currentSequence.scenes.forEach((scene, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = scene.title || '無題のシーン';
+
+                    const buttonGroup = document.createElement('div');
+
+                    const openButton = document.createElement('button');
+                    openButton.textContent = '開く';
+                    openButton.addEventListener('click', () => {
+                        currentSceneIndex = index;
+                        loadScene(currentSceneIndex);
+                        showScreen('scene-editor');
+                    });
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.textContent = '削除';
+                    deleteButton.style.backgroundColor = '#dc3545';
+                    deleteButton.style.marginLeft = '10px';
+                    deleteButton.addEventListener('click', (event) => {
+                        event.stopPropagation();
+                        if (confirm(`${scene.title || '無題のシーン'} を削除しますか？`)) {
+                            currentSequence.scenes.splice(index, 1);
+                            savePlotsToStorage();
+                            displaySceneList();
+                        }
+                    });
+                    buttonGroup.appendChild(openButton);
+                    buttonGroup.appendChild(deleteButton);
+                    listItem.appendChild(buttonGroup);
+                    sceneList.appendChild(listItem);
+                });
+            }
+
+            function addScene() {
+                if (currentSequenceIndex === null) {
+                    alert('先にシークエンスを保存してください。');
+                    return;
+                }
+                const currentPlot = plots[currentPlotIndex];
+                const currentSequence = currentPlot.sequences[currentSequenceIndex];
+                if (!currentSequence.scenes) {
+                    currentSequence.scenes = [];
+                }
+                currentSceneIndex = null; // 新規作成なのでインデックスをリセット
+                sceneTitleInput.value = '';
+                sceneDetailTextarea.value = '';
+                drawingMode = null;
+                isDrawing = false;
+                drawings = [];
+                drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height); // Canvasをクリア
+                currentTableData = null;
+                tablePreview.innerHTML = ''; // 表をクリア
+                currentImageData = null;
+                imagePreviewElement.innerHTML = ''; // 画像をクリア
+                showScreen('scene-editor');
+            }
+
+            function saveScene() {
+                if (currentPlotIndex === null || currentSequenceIndex === null) {
+                    alert('関連するプロットまたはシークエンスが選択されていません。');
+                    return;
+                }
+                const currentPlot = plots[currentPlotIndex];
+                const currentSequence = currentPlot.sequences[currentSequenceIndex];
+                if (!currentSequence.scenes) {
+                    currentSequence.scenes = [];
+                }
+
+                const sceneData = {
+                    title: sceneTitleInput.value,
+                    detail: sceneDetailTextarea.value,
+                    drawings: drawings,
+                    tableData: currentTableData,
+                    imageData: currentImageData
+                };
+
+                if (currentSceneIndex === null) {
+                    // 新規シーン
+                    currentSequence.scenes.push(sceneData);
+                    currentSceneIndex = currentSequence.scenes.length - 1;
+                } else {
+                    // 既存シーンの更新
+                    currentSequence.scenes[currentSceneIndex] = sceneData;
+                }
+                savePlotsToStorage();
+                displaySceneList();
+                alert('シーンが保存されました！');
+            }
+
+            function loadScene(index) {
+                const currentPlot = plots[currentPlotIndex];
+                const currentSequence = currentPlot?.sequences?.[currentSequenceIndex];
+                const scene = currentSequence?.scenes?.[index];
+                if (scene) {
+                    sceneTitleInput.value = scene.title;
+                    sceneDetailTextarea.value = scene.detail;
+
+                    // 図形描画をロード
+                    drawings = scene.drawings || [];
+                    drawAllDrawings();
+
+                    // 表をロード
+                    currentTableData = scene.tableData;
+                    renderTablePreview(currentTableData);
+
+                    // 画像をロード
+                    currentImageData = scene.imageData;
+                    if (currentImageData && currentImageData.dataUrl) {
+                        const img = document.createElement('img');
+                        img.src = currentImageData.dataUrl;
+                        imagePreviewElement.innerHTML = '';
+                        imagePreviewElement.appendChild(img);
+                    } else {
+                        imagePreviewElement.innerHTML = '';
+                    }
+                }
+            }
+
+            // --- 時系列Canvas関連関数 ---
+            function drawTimeline() {
+                // Canvasの解像度設定
+                timelineCanvas.width = timelineCanvas.offsetWidth;
+                timelineCanvas.height = timelineCanvas.offsetHeight;
+
+                timelineCtx.clearRect(0, 0, timelineCanvas.width, timelineCanvas.height);
+
+                // 中心線
+                timelineCtx.beginPath();
+                timelineCtx.moveTo(0, timelineCanvas.height / 2);
+                timelineCtx.lineTo(timelineCanvas.width, timelineCanvas.height / 2);
+                timelineCtx.strokeStyle = '#333';
+                timelineCtx.stroke();
+
+                // イベントの描画
+                timelineEvents.forEach(event => {
+                    // ここでは簡単な棒線で表現
+                    // 実際の時系列では、イベントテキスト、日付、位置などを考慮して描画する
+                    const x = (event.position / 100) * timelineCanvas.width; // 0-100%の位置
+                    timelineCtx.beginPath();
+                    timelineCtx.arc(x, timelineCanvas.height / 2, 5, 0, Math.PI * 2);
+                    timelineCtx.fillStyle = 'blue';
+                    timelineCtx.fill();
+                    timelineCtx.fillText(event.text, x + 10, timelineCanvas.height / 2 - 10);
+                });
+            }
+
+            function renderTimelineEventsList() {
+                timelineEventsList.innerHTML = '';
+                timelineEvents.forEach((event, index) => {
+                    const eventItem = document.createElement('div');
+                    eventItem.classList.add('timeline-event-item');
+                    eventItem.innerHTML = `
+                        <span>${event.text} (位置: ${event.position}%)</span>
+                        <button data-index="${index}">削除</button>
+                    `;
+                    timelineEventsList.appendChild(eventItem);
+                });
+                timelineEventsList.querySelectorAll('.timeline-event-item button').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        const indexToDelete = parseInt(e.target.dataset.index);
+                        timelineEvents.splice(indexToDelete, 1);
+                        drawTimeline();
+                        renderTimelineEventsList();
+                        savePlot(); // 変更を保存
+                    });
+                });
+            }
+
+            // --- 図形描画Canvas関連関数 ---
+            function drawAllDrawings() {
+                drawingCanvas.width = drawingCanvas.offsetWidth;
+                drawingCanvas.height = drawingCanvas.offsetHeight;
+                drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+                drawingCtx.strokeStyle = 'black';
+                drawingCtx.lineWidth = 2;
+
+                drawings.forEach(drawing => {
+                    if (drawing.type === 'rect') {
+                        drawingCtx.strokeRect(drawing.x, drawing.y, drawing.width, drawing.height);
+                    } else if (drawing.type === 'circle') {
+                        drawingCtx.beginPath();
+                        drawingCtx.arc(drawing.x, drawing.y, drawing.radius, 0, Math.PI * 2);
+                        drawingCtx.stroke();
+                    }
+                });
+            }
+
+            function getCanvasXY(event) {
+                const rect = drawingCanvas.getBoundingClientRect();
+                const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+                const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            }
+
+            // --- 表作成関連関数 ---
+            function renderTablePreview(data) {
+                if (!data) {
+                    tablePreview.innerHTML = '';
+                    return;
+                }
+                let tableHtml = '<table>';
+                data.forEach(row => {
+                    tableHtml += '<tr>';
+                    row.forEach(cell => {
+                        tableHtml += `<td contenteditable="true">${cell}</td>`;
+                    });
+                    tableHtml += '</tr>';
+                });
+                tableHtml += '</table>';
+                tablePreview.innerHTML = tableHtml;
+
+                // セルの編集イベントをリッスンしてcurrentTableDataを更新
+                tablePreview.querySelectorAll('td').forEach((td, cellIndex) => {
+                    td.addEventListener('blur', (e) => {
+                        const rowIndex = Array.from(td.parentNode.parentNode.children).indexOf(td.parentNode);
+                        const colIndex = Array.from(td.parentNode.children).indexOf(td);
+                        if (currentTableData && currentTableData[rowIndex]) {
+                            currentTableData[rowIndex][colIndex] = e.target.textContent;
+                        }
+                    });
+                });
+            }
+
+            // --- イベントリスナー ---
+
+            // メイン画面
+            newPlotButton.addEventListener('click', newPlot);
+
+            // プロット編集画面
+            savePlotButton.addEventListener('click', savePlot);
+            backToMainButton.addEventListener('click', () => {
+                showScreen('main-screen');
+                displayPlotList(); // メインに戻ったときにリストを更新
+            });
+            addSequenceButton.addEventListener('click', addSequence);
+            addTimelineEventButton.addEventListener('click', () => {
+                const eventText = prompt('イベント名を入力してください:');
+                if (eventText) {
+                    let position = prompt('タイムライン上の位置 (0-100%):', '50');
+                    position = Math.max(0, Math.min(100, parseInt(position) || 0)); // 0-100に制限
+                    timelineEvents.push({ text: eventText, position: position });
+                    drawTimeline();
+                    renderTimelineEventsList();
+                }
+            });
+
+            // シークエンス編集画面
+            saveSequenceButton.addEventListener('click', saveSequence);
+            backToPlotButton.addEventListener('click', () => {
+                showScreen('plot-editor');
+                loadPlot(currentPlotIndex); // プロットデータを再ロードして更新
+            });
+            addSceneButton.addEventListener('click', addScene);
+
+            // シーン編集画面
+            saveSceneButton.addEventListener('click', saveScene);
+            backToSequenceButton.addEventListener('click', () => {
+                showScreen('sequence-editor');
+                loadSequence(currentSequenceIndex); // シークエンスデータを再ロードして更新
+            });
+
+            // 図形描画ボタン
+            drawRectButton.addEventListener('click', () => { drawingMode = 'rect'; });
+            drawCircleButton.addEventListener('click', () => { drawingMode = 'circle'; });
+
+            // 図形描画Canvasイベント
+            drawingCanvas.addEventListener('mousedown', (e) => {
+                if (drawingMode) {
+                    isDrawing = true;
+                    const { x, y } = getCanvasXY(e);
+                    startX = x;
+                    startY = y;
+                }
+            });
+            drawingCanvas.addEventListener('mousemove', (e) => {
+                if (!isDrawing || !drawingMode) return;
+                drawAllDrawings(); // 現在の描画をクリアして再描画
+                const { x, y } = getCanvasXY(e);
+
+                drawingCtx.beginPath();
+                drawingCtx.strokeStyle = 'red'; // 描画中は赤線
+                drawingCtx.lineWidth = 2;
+
+                if (drawingMode === 'rect') {
+                    const width = x - startX;
+                    const height = y - startY;
+                    drawingCtx.strokeRect(startX, startY, width, height);
+                } else if (drawingMode === 'circle') {
+                    const radius = Math.sqrt(Math.pow(x - startX, 2) + Math.pow(y - startY, 2));
+                    drawingCtx.arc(startX, startY, radius, 0, Math.PI * 2);
+                    drawingCtx.stroke();
+                }
+            });
+            drawingCanvas.addEventListener('mouseup', (e) => {
+                if (isDrawing && drawingMode) {
+                    isDrawing = false;
+                    const { x, y } = getCanvasXY(e);
+                    if (drawingMode === 'rect') {
+                        const width = x - startX;
+                        const height = y - startY;
+                        drawings.push({ type: 'rect', x: startX, y: startY, width: width, height: height });
+                    } else if (drawingMode === 'circle') {
+                        const radius = Math.sqrt(Math.pow(x - startX, 2) + Math.pow(y - startY, 2));
+                        drawings.push({ type: 'circle', x: startX, y: startY, radius: radius });
+                    }
+                    drawingMode = null; // 描画モードをリセット
+                    drawAllDrawings(); // 最終的な描画をCanvasに反映
+                }
+            });
+            // タッチイベント対応
+            drawingCanvas.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // スクロールなどを防止
+                if (drawingMode) {
+                    isDrawing = true;
+                    const { x, y } = getCanvasXY(e);
+                    startX = x;
+                    startY = y;
+                }
+            });
+            drawingCanvas.addEventListener('touchmove', (e) => {
+                e.preventDefault(); // スクロールなどを防止
+                if (!isDrawing || !drawingMode) return;
+                drawAllDrawings();
+                const { x, y } = getCanvasXY(e);
+
+                drawingCtx.beginPath();
+                drawingCtx.strokeStyle = 'red';
+                drawingCtx.lineWidth = 2;
+
+                if (drawingMode === 'rect') {
+                    const width = x - startX;
+                    const height = y - startY;
+                    drawingCtx.strokeRect(startX, startY, width, height);
+                } else if (drawingMode === 'circle') {
+                    const radius = Math.sqrt(Math.pow(x - startX, 2) + Math.pow(y - startY, 2));
+                    drawingCtx.arc(startX, startY, radius, 0, Math.PI * 2);
+                    drawingCtx.stroke();
+                }
+            });
+            drawingCanvas.addEventListener('touchend', (e) => {
+                if (isDrawing && drawingMode) {
+                    isDrawing = false;
+                    const { x, y } = getCanvasXY(e.changedTouches[0]); // touchendはchangedTouchesを見る
+                    if (drawingMode === 'rect') {
+                        const width = x - startX;
+                        const height = y - startY;
+                        drawings.push({ type: 'rect', x: startX, y: startY, width: width, height: height });
+                    } else if (drawingMode === 'circle') {
+                        const radius = Math.sqrt(Math.pow(x - startX, 2) + Math.pow(y - startY, 2));
+                        drawings.push({ type: 'circle', x: startX, y: startY, radius: radius });
+                    }
+                    drawingMode = null;
+                    drawAllDrawings();
+                }
+            });
+
+
+            // 表作成ボタン
+            createTableButton.addEventListener('click', () => {
+                const rows = parseInt(tableRowsInput.value) || 3;
+                const cols = parseInt(tableColsInput.value) || 3;
+                currentTableData = Array.from({ length: rows }, () => Array(cols).fill(''));
+                renderTablePreview(currentTableData);
+            });
+
+            // 画像アップロード
+            imageUpload.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        currentImageData = { dataUrl: e.target.result, name: file.name };
+                        const img = document.createElement('img');
+                        img.src = currentImageData.dataUrl;
+                        imagePreviewElement.innerHTML = '';
+                        imagePreviewElement.appendChild(img);
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    currentImageData = null;
+                    imagePreviewElement.innerHTML = '';
+                }
+            });
+
+            // 初期化処理
+            loadPlotsFromStorage();
+            drawTimeline(); // 初回ロード時にCanvasを初期化
+            drawAllDrawings(); // 初回ロード時に描画Canvasを初期化
+        });
+    </script>
+</body>
+</html>
